@@ -1,0 +1,46 @@
+#!/bin/sh -e
+# Note: the '-e' flag will make the script stop immediately upon error with 
+# the error reflected in the environment.  This lets one issue commands like
+# "./build sbitx && ./sbitx" to build then run if it built correctly, and not
+# run if the build failed.
+F=$@
+[ -z "$F" ] && {
+   echo "usage:   $0 program"
+   echo "example: $0 sbitx"
+   exit 1
+}
+WORKING_DIRECTORY=`pwd`
+echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+date
+mkdir -p "./audio"
+mkdir -p "./data"
+mkdir -p "./web"
+
+if test -f "data/sbitx.db"; then
+	echo "database is intact"
+else
+	echo "database doesn't exist, it will be created"
+	cd data
+	sqlite3 sbitx.db < create_db.sql
+	cd ..
+fi
+
+if [ "$F" != "sbitx" ]; then
+  echo "compiling $F in $WORKING_DIRECTORY"
+else
+  VERSION=`grep VER sdr_ui.h|awk 'FNR==1{print $4}'|sed -e 's/"//g'`
+  echo "compiling $F version $VERSION in $WORKING_DIRECTORY"
+fi
+gcc -g -o $F \
+	 vfo.c si570.c sbitx_sound.c fft_filter.c  sbitx_gtk.c sbitx_utils.c \
+    i2cbb.c si5351v2.c ini.c hamlib.c queue.c modems.c logbook.c \
+		modem_cw.c settings_ui.c ntputil.c \
+		telnet.c macros.c modem_ft8.c remote.c mongoose.c para_eq.c webserver.c $F.c  \
+		ft8_lib/libft8.a  \
+	-lwiringPi -lasound -lm -lfftw3 -lfftw3f -pthread -lncurses -lsqlite3 -lnsl -lrt\
+	`pkg-config --cflags gtk+-3.0` `pkg-config --libs gtk+-3.0`
+ 
+# This addition is used to provide the application the capability to adjust the local system time -W2JON
+echo "Brought to you by the sBitx 64 bit project team - W9JES, W2JON, KF7YDU, and N1QM" 
+ sudo setcap CAP_SYS_TIME+ep /home/pi/sbitx/sbitx
+echo "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
